@@ -4,11 +4,13 @@ Read by the claude-resume-sessions VS Code extension, which resumes them on wind
 A session stays listed when its terminal dies (SessionEnd reason "other" or no hook at
 all), and is dropped when it ends on purpose (/exit, /clear, /resume, logout).
 """
-import json, os, pathlib, sys
+import json, os, pathlib, re, sys
 
 e = json.load(sys.stdin)
 if os.environ.get("TERM_PROGRAM") != "vscode" or os.environ.get("CLAUDE_CODE_ENTRYPOINT") != "cli":
     sys.exit()  # skips `claude -p`, the desktop app and non-VS Code terminals
+if not re.fullmatch("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}", str(e.get("session_id")), re.I):
+    sys.exit()  # the id becomes a filename, so it must not contain a path
 
 d = pathlib.Path.home() / ".claude" / "open-sessions"
 f = d / f"{e['session_id']}.json"

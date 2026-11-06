@@ -2,7 +2,7 @@
   "name": "claude-resume-sessions",
   "displayName": "Claude Resume Sessions",
   "description": "Reopens this folder's Claude Code CLI sessions in terminals on window open.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "publisher": "local",
   "license": "MIT",
   "engines": { "vscode": "^1.80.0" },

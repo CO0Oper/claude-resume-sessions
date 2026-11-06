@@ -1,5 +1,5 @@
 """Packs vscode-extension/ into a VSIX and installs it with the `code` CLI."""
-import json, pathlib, shutil, subprocess, sys, tempfile, zipfile
+import json, os, pathlib, shutil, subprocess, sys, tempfile, zipfile
 
 SRC = pathlib.Path(__file__).resolve().parent.parent / "vscode-extension"
 
@@ -26,6 +26,7 @@ def build(out):
 
 
 def main():
+    os.chdir(SRC)  # on Windows, which() checks the current folder first, which could hold a planted code.cmd
     code = shutil.which("code")
     if not code:
         sys.exit("`code` is not on PATH. In VS Code run: Shell Command: Install 'code' command in PATH")

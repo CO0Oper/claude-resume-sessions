@@ -3,6 +3,7 @@ const vscode = require('vscode'), fs = require('fs'), path = require('path'), os
 
 const claudeDir = path.join(os.homedir(), '.claude');
 const norm = p => (process.platform === 'win32' ? path.resolve(p).toLowerCase() : path.resolve(p));
+const UUID = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 
 function readJsonDir(dir) {
   let names = [];
@@ -32,10 +33,16 @@ function titleOf(id) {
 exports.activate = () => {
   const folders = (vscode.workspace.workspaceFolders || []).map(f => norm(f.uri.fsPath));
   // A window reload keeps terminals running, so live sessions must not be resumed twice.
-  const running = new Set(readJsonDir(path.join(claudeDir, 'sessions')).filter(s => isAlive(s.pid)).map(s => s.sessionId));
+  const running = new Set(readJsonDir(path.join(claudeDir, 'sessions')).filter(s => isAlive(s?.pid)).map(s => s.sessionId));
   for (const s of readJsonDir(path.join(claudeDir, 'open-sessions'))) {
+    // The id is typed into a shell, so anything but a UUID is skipped.
+    if (!UUID.test(s?.id) || typeof s.cwd !== 'string') continue;
     const cwd = norm(s.cwd);
     if (running.has(s.id) || !folders.some(f => cwd === f || cwd.startsWith(f + path.sep))) continue;
-    vscode.window.createTerminal({ name: titleOf(s.id) || `claude ${s.id.slice(0, 8)}`, cwd: s.cwd }).sendText(`claude --resume ${s.id}`);
+    vscode.window.createTerminal({
+      name: titleOf(s.id) || `claude ${s.id.slice(0, 8)}`,
+      cwd: s.cwd,
+      env: { NoDefaultCurrentDirectoryInExePath: '1' }, // stops cmd.exe running a claude.cmd planted in the project
+    }).sendText(`claude --resume ${s.id}`);
   }
 };
