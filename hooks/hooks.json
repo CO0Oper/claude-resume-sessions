@@ -1,0 +1,24 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/track_open_session.py\" || python \"${CLAUDE_PLUGIN_ROOT}/hooks/track_open_session.py\""
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/track_open_session.py\" || python \"${CLAUDE_PLUGIN_ROOT}/hooks/track_open_session.py\""
+          }
+        ]
+      }
+    ]
+  }
+}

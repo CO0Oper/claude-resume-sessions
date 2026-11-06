@@ -1,0 +1,11 @@
+{
+  "name": "claude-resume-sessions",
+  "owner": { "name": "Cooper" },
+  "plugins": [
+    {
+      "name": "resume-sessions",
+      "source": "./",
+      "description": "Reopens your Claude Code CLI sessions in VS Code terminals when a project window opens."
+    }
+  ]
+}

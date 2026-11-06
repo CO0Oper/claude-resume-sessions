@@ -1,0 +1,6 @@
+{
+  "name": "resume-sessions",
+  "version": "0.1.1",
+  "description": "Reopens your Claude Code CLI sessions in VS Code terminals when a project window opens.",
+  "license": "MIT"
+}
