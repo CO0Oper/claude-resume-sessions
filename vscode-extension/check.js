@@ -13,7 +13,7 @@ const proj = path.join(home, 'Proj');
 const now = Date.now(), MIN = 60e3;
 
 // What the window noted before it last closed (last note 1 minute after `dead` was last seen).
-const memory = new Map([['sessions', { beat: now - MIN, seen: {
+const memory = new Map([['restore', { beat: now - MIN, seen: {
   [dead]: { cwd: proj, t: now - 1.5 * MIN },
   [sub]: { cwd: path.join(proj, 'works'), t: now - MIN },
   [untitled]: { cwd: proj, t: now - MIN },
@@ -65,16 +65,17 @@ assert(sent.every(s => s[3].NoDefaultCurrentDirectoryInExePath === '1'));
 
 // A note keeps running sessions in this window plus recent ones, and forgets old and closed ones.
 tick();
-const seen = Object.keys(memory.get('sessions').seen).sort();
+const seen = Object.keys(memory.get('restore').seen).sort();
 assert.deepStrictEqual(seen, [dead, sub, untitled, live, other, uuid('3')].sort());
-assert(memory.get('sessions').seen[live].t >= now);
-assert.strictEqual(memory.get('sessions').seen[other].cwd, proj + '2'); // carried over, never resumed here
+assert(memory.get('restore').seen[live].t >= now);
+assert.strictEqual(memory.get('restore').seen[other].cwd, proj + '2'); // carried over, never resumed here
 
-// First run with no memory: notes right away, resumes nothing.
+// No notes yet (first run or upgrade): every tracked session in this folder that isn't running.
 memory.clear(); sent.length = 0;
 ext.activate(context);
-assert.strictEqual(sent.length, 0);
-assert.deepStrictEqual(Object.keys(memory.get('sessions').seen), [live]);
+assert.deepStrictEqual(sent.map(s => s[1]), [`claude --resume ${closed}`]);
+tick();
+assert(memory.get('restore').seen[live] && memory.get('restore').seen[closed]);
 
 // The hook must not write outside open-sessions.
 const hook = id => spawnSync(process.platform === 'win32' ? 'python' : 'python3', [path.join(__dirname, '..', 'hooks', 'track_open_session.py')], {

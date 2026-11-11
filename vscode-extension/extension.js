@@ -36,7 +36,7 @@ const liveIds = () => new Set(readJsonDir(path.join(claudeDir, 'sessions')).filt
 // ones running when it last closed. Shutdown can kill terminals before the final note, so a session
 // counts if either of the last two notes saw it.
 // ponytail: a session closed up to 2 minutes before VS Code closed comes back too.
-const KEY = 'sessions', BEAT = 60e3, GRACE = 2 * BEAT;
+const KEY = 'restore', BEAT = 60e3, GRACE = 2 * BEAT;
 
 exports.activate = context => {
   const folders = (vscode.workspace.workspaceFolders || []).map(f => norm(f.uri.fsPath));
@@ -54,8 +54,12 @@ exports.activate = context => {
   const timer = setInterval(beat, BEAT);
   context.subscriptions.push({ dispose: () => clearInterval(timer) });
 
+  // No notes yet (first run, or upgraded from a version without them): resume every tracked session once.
+  // ponytail: that one time can also reopen sessions whose terminal was closed rather than /exit-ed.
+  const now = Date.now();
+  if (!state.get(KEY)) state.update(KEY, { beat: now, seen: Object.fromEntries(
+    readJsonDir(path.join(claudeDir, 'open-sessions')).filter(s => typeof s?.id === 'string').map(s => [s.id, { cwd: s.cwd, t: now }])) });
   const last = state.get(KEY);
-  if (!last) return beat(); // first run: nothing to restore yet
   // A window reload keeps terminals running, so live sessions must not be resumed twice.
   const running = liveIds();
   for (const [id, s] of Object.entries(last.seen || {})) {
