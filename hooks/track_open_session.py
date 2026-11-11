@@ -1,6 +1,6 @@
 """Keeps ~/.claude/open-sessions/<id>.json = CLI sessions open in VS Code terminals.
 
-Read by the claude-resume-sessions VS Code extension, which resumes them on window open.
+Read by the claude-resume-sessions VS Code extension, which only restores sessions listed here.
 A session stays listed when its terminal dies (SessionEnd reason "other" or no hook at
 all), and is dropped when it ends on purpose (/exit, /clear, /resume, logout).
 """

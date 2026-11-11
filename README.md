@@ -21,14 +21,14 @@ Sessions started after setup are tracked.
 ## How it works
 
 - A `SessionStart` hook records each CLI session started in a VS Code terminal in `~/.claude/open-sessions/`.
-- A `SessionEnd` hook removes it when you end it on purpose (`/exit`, `/clear`, `/resume`, logout). A session whose terminal dies stays listed.
-- A small VS Code extension runs on window open and resumes the listed sessions for that folder, skipping any still running.
+- A small VS Code extension notes once a minute which of those sessions are running in each window.
+- When the window opens again, it resumes the sessions that were running when it closed, skipping any still running.
 
 ## Usage notes
 
 - Quit with File > Exit so VS Code reopens all your windows. A window closed on its own comes back when you next open that folder.
 - Resumed tabs are named after the session's title. Use `/rename` in a session to choose your own.
-- End a session for good with `/exit`. Closing its terminal tab leaves it listed, so it comes back.
+- Closed sessions stay closed. One closed in the last two minutes before VS Code closed can still come back.
 - A session that was mid-task comes back with its conversation but doesn't continue by itself.
 - Opening a folder restores sessions started in it or its subfolders.
 

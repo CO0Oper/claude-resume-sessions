@@ -30,19 +30,41 @@ function titleOf(id) {
   } catch { return null; }
 }
 
-exports.activate = () => {
+const liveIds = () => new Set(readJsonDir(path.join(claudeDir, 'sessions')).filter(s => isAlive(s?.pid)).map(s => s.sessionId));
+
+// Each window notes once a minute which tracked sessions are running in it, and on open resumes the
+// ones running when it last closed. Shutdown can kill terminals before the final note, so a session
+// counts if either of the last two notes saw it.
+// ponytail: a session closed up to 2 minutes before VS Code closed comes back too.
+const KEY = 'sessions', BEAT = 60e3, GRACE = 2 * BEAT;
+
+exports.activate = context => {
   const folders = (vscode.workspace.workspaceFolders || []).map(f => norm(f.uri.fsPath));
+  const inFolder = p => typeof p === 'string' && folders.some(f => norm(p) === f || norm(p).startsWith(f + path.sep));
+  const state = context.workspaceState;
+
+  const beat = () => {
+    const live = liveIds(), now = Date.now(), seen = {};
+    for (const [id, s] of Object.entries(state.get(KEY)?.seen || {})) if (UUID.test(id) && s?.t >= now - GRACE) seen[id] = s;
+    for (const s of readJsonDir(path.join(claudeDir, 'open-sessions'))) {
+      if (UUID.test(s?.id) && live.has(s.id) && inFolder(s.cwd)) seen[s.id] = { cwd: s.cwd, t: now };
+    }
+    state.update(KEY, { beat: now, seen });
+  };
+  const timer = setInterval(beat, BEAT);
+  context.subscriptions.push({ dispose: () => clearInterval(timer) });
+
+  const last = state.get(KEY);
+  if (!last) return beat(); // first run: nothing to restore yet
   // A window reload keeps terminals running, so live sessions must not be resumed twice.
-  const running = new Set(readJsonDir(path.join(claudeDir, 'sessions')).filter(s => isAlive(s?.pid)).map(s => s.sessionId));
-  for (const s of readJsonDir(path.join(claudeDir, 'open-sessions'))) {
+  const running = liveIds();
+  for (const [id, s] of Object.entries(last.seen || {})) {
     // The id is typed into a shell, so anything but a UUID is skipped.
-    if (!UUID.test(s?.id) || typeof s.cwd !== 'string') continue;
-    const cwd = norm(s.cwd);
-    if (running.has(s.id) || !folders.some(f => cwd === f || cwd.startsWith(f + path.sep))) continue;
+    if (!UUID.test(id) || !s || s.t < last.beat - GRACE || running.has(id) || !inFolder(s.cwd)) continue;
     vscode.window.createTerminal({
-      name: titleOf(s.id) || `claude ${s.id.slice(0, 8)}`,
+      name: titleOf(id) || `claude ${id.slice(0, 8)}`,
       cwd: s.cwd,
       env: { NoDefaultCurrentDirectoryInExePath: '1' }, // stops cmd.exe running a claude.cmd planted in the project
-    }).sendText(`claude --resume ${s.id}`);
+    }).sendText(`claude --resume ${id}`);
   }
 };
