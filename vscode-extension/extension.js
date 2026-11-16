@@ -1,4 +1,3 @@
-// Source of truth: ~/.claude/open-sessions, written by hooks/track_open_session.py
 const vscode = require('vscode'), fs = require('fs'), path = require('path'), os = require('os');
 
 const claudeDir = path.join(os.homedir(), '.claude');
@@ -30,12 +29,14 @@ function titleOf(id) {
   } catch { return null; }
 }
 
-const liveIds = () => new Set(readJsonDir(path.join(claudeDir, 'sessions')).filter(s => isAlive(s?.pid)).map(s => s.sessionId));
+// Claude's own registry of running sessions (~/.claude/sessions/<pid>.json); dead entries get cleaned out.
+const live = () => readJsonDir(path.join(claudeDir, 'sessions')).filter(s => isAlive(s?.pid) && UUID.test(s.sessionId));
 
-// Each window notes once a minute which tracked sessions are running in it, and on open resumes the
-// ones running when it last closed. Shutdown can kill terminals before the final note, so a session
-// counts if either of the last two notes saw it.
+// Each window notes once a minute which interactive CLI sessions are running in its folders, and on
+// open resumes the ones running when it last closed. Shutdown can kill terminals before the final
+// note, so a session counts if either of the last two notes saw it.
 // ponytail: a session closed up to 2 minutes before VS Code closed comes back too.
+// ponytail: a CLI session in the same folder but outside VS Code (e.g. Windows Terminal) counts too.
 const KEY = 'restore', BEAT = 60e3, GRACE = 2 * BEAT;
 
 exports.activate = context => {
@@ -44,24 +45,19 @@ exports.activate = context => {
   const state = context.workspaceState;
 
   const beat = () => {
-    const live = liveIds(), now = Date.now(), seen = {};
+    const now = Date.now(), seen = {};
     for (const [id, s] of Object.entries(state.get(KEY)?.seen || {})) if (UUID.test(id) && s?.t >= now - GRACE) seen[id] = s;
-    for (const s of readJsonDir(path.join(claudeDir, 'open-sessions'))) {
-      if (UUID.test(s?.id) && live.has(s.id) && inFolder(s.cwd)) seen[s.id] = { cwd: s.cwd, t: now };
+    for (const s of live()) {
+      if (s.entrypoint === 'cli' && (s.kind ?? 'interactive') === 'interactive' && inFolder(s.cwd)) seen[s.sessionId] = { cwd: s.cwd, t: now };
     }
     state.update(KEY, { beat: now, seen });
   };
   const timer = setInterval(beat, BEAT);
   context.subscriptions.push({ dispose: () => clearInterval(timer) });
 
-  // No notes yet (first run, or upgraded from a version without them): resume every tracked session once.
-  // ponytail: that one time can also reopen sessions whose terminal was closed rather than /exit-ed.
-  const now = Date.now();
-  if (!state.get(KEY)) state.update(KEY, { beat: now, seen: Object.fromEntries(
-    readJsonDir(path.join(claudeDir, 'open-sessions')).filter(s => typeof s?.id === 'string').map(s => [s.id, { cwd: s.cwd, t: now }])) });
-  const last = state.get(KEY);
+  const last = state.get(KEY) || {};
   // A window reload keeps terminals running, so live sessions must not be resumed twice.
-  const running = liveIds();
+  const running = new Set(live().map(s => s.sessionId));
   for (const [id, s] of Object.entries(last.seen || {})) {
     // The id is typed into a shell, so anything but a UUID is skipped.
     if (!UUID.test(id) || !s || s.t < last.beat - GRACE || running.has(id) || !inFolder(s.cwd)) continue;

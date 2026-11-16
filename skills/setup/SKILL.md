@@ -11,4 +11,4 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/install_extension.py"
 
 Then ask whether the user wants `"terminal.integrated.persistentSessionReviveProcess": "never"` added to their VS Code user settings. Explain that without it, VS Code also restores an empty terminal beside each resumed session, and that with it, ordinary terminals no longer come back after a full close. Change the setting only if they agree.
 
-Tell the user that only sessions started after this setup are tracked.
+Tell the user to run "Developer: Restart Extension Host" in each open VS Code window (running sessions are kept), so the extension starts noting their sessions.

@@ -1,6 +1,5 @@
 // Run: node vscode-extension/check.js  (stubs vscode, uses a throwaway home)
 const assert = require('assert'), fs = require('fs'), os = require('os'), path = require('path'), Module = require('module');
-const { spawnSync } = require('child_process');
 const home = fs.mkdtempSync(path.join(os.tmpdir(), 'resume-check-'));
 process.env.USERPROFILE = process.env.HOME = home;
 const write = (dir, name, obj) => {
@@ -29,14 +28,15 @@ const context = {
   workspaceState: { get: k => memory.get(k), update: (k, v) => memory.set(k, v) },
 };
 
-// Tracked by the hook; `closed` is tracked but no longer running.
-for (const [id, cwd] of [[live, proj], [closed, proj], [other, proj + '2']]) write('open-sessions', `${id}.json`, { id, cwd });
-write('sessions', '1.json', { pid: process.pid, sessionId: live });
-write('sessions', '2.json', { pid: 999999, sessionId: closed }); // stale registry entry
+// Claude's registry: `live` and `other` are running; `closed` is a stale entry; the rest must be ignored.
+write('sessions', '1.json', { pid: process.pid, sessionId: live, cwd: proj, entrypoint: 'cli', kind: 'interactive' });
+write('sessions', '4.json', { pid: process.pid, sessionId: other, cwd: proj + '2', entrypoint: 'cli', kind: 'interactive' });
+write('sessions', '2.json', { pid: 999999, sessionId: closed, cwd: proj, entrypoint: 'cli', kind: 'interactive' });
+write('sessions', '5.json', { pid: process.pid, sessionId: uuid('5'), cwd: proj, entrypoint: 'claude-vscode', kind: 'interactive' });
+write('sessions', '6.json', { pid: process.pid, sessionId: uuid('6'), cwd: proj, entrypoint: 'cli', kind: 'print' });
+write('sessions', '7.json', { pid: process.pid, sessionId: '../x', cwd: proj, entrypoint: 'cli', kind: 'interactive' });
 write('sessions', '3.json', null);
-fs.writeFileSync(path.join(home, '.claude', 'open-sessions', 'bad.json'), '{oops');
-write('open-sessions', 'null.json', null);
-write('open-sessions', 'number.json', { id: 7, cwd: proj });
+fs.writeFileSync(path.join(home, '.claude', 'sessions', 'bad.json'), '{oops');
 
 const transcript = (id, ...recs) => {
   const dir = path.join(home, '.claude', 'projects', 'parent-folder');
@@ -70,22 +70,12 @@ assert.deepStrictEqual(seen, [dead, sub, untitled, live, other, uuid('3')].sort(
 assert(memory.get('restore').seen[live].t >= now);
 assert.strictEqual(memory.get('restore').seen[other].cwd, proj + '2'); // carried over, never resumed here
 
-// No notes yet (first run or upgrade): every tracked session in this folder that isn't running.
+// No notes yet (first run): nothing to resume.
 memory.clear(); sent.length = 0;
 ext.activate(context);
-assert.deepStrictEqual(sent.map(s => s[1]), [`claude --resume ${closed}`]);
+assert.deepStrictEqual(sent, []);
 tick();
-assert(memory.get('restore').seen[live] && memory.get('restore').seen[closed]);
-
-// The hook must not write outside open-sessions.
-const hook = id => spawnSync(process.platform === 'win32' ? 'python' : 'python3', [path.join(__dirname, '..', 'hooks', 'track_open_session.py')], {
-  input: JSON.stringify({ hook_event_name: 'SessionStart', session_id: id, cwd: proj }),
-  env: { ...process.env, TERM_PROGRAM: 'vscode', CLAUDE_CODE_ENTRYPOINT: 'cli' },
-});
-assert.strictEqual(hook('../../planted').status, 0);
-assert(!fs.existsSync(path.join(home, 'planted.json')));
-assert.strictEqual(hook(uuid('9')).status, 0);
-assert(fs.existsSync(path.join(home, '.claude', 'open-sessions', `${uuid('9')}.json`)));
+assert.deepStrictEqual(Object.keys(memory.get('restore').seen), [live]);
 
 fs.rmSync(home, { recursive: true, force: true });
 console.log('ok');

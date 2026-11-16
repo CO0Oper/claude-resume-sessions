@@ -16,12 +16,11 @@ In Claude Code:
 /resume-sessions:setup
 ```
 
-Sessions started after setup are tracked.
+Sessions running from then on are tracked.
 
 ## How it works
 
-- A `SessionStart` hook records each CLI session started in a VS Code terminal in `~/.claude/open-sessions/`.
-- A small VS Code extension notes once a minute which of those sessions are running in each window.
+- A small VS Code extension notes once a minute which CLI sessions are running in each window's folder, using Claude Code's own list of running sessions (`~/.claude/sessions/`).
 - When the window opens again, it resumes the sessions that were running when it closed, skipping any still running.
 
 ## Usage notes
@@ -35,7 +34,8 @@ Sessions started after setup are tracked.
 ## Limitations
 
 - Tested on Windows only.
-- Skipping running sessions reads `~/.claude/sessions/`, which is an internal Claude Code file format and may change. If it does, reloading a window could open duplicates.
+- `~/.claude/sessions/` is an internal Claude Code file format and may change. If it does, sessions stop being noted.
+- A CLI session in the window's folder but outside VS Code (another terminal app) is noted too.
 - After a reboot, a session can be skipped if an unrelated process has its old process ID. Reload the window to bring it back.
 - Sessions resume with default flags, so options like `--model` from the original launch aren't reapplied.
 - A custom `CLAUDE_CONFIG_DIR` isn't supported.
@@ -46,8 +46,6 @@ Sessions started after setup are tracked.
 /plugin uninstall resume-sessions@claude-resume-sessions
 code --uninstall-extension local.claude-resume-sessions
 ```
-
-Then delete `~/.claude/open-sessions/`.
 
 ## Test
 
